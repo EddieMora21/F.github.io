@@ -75,6 +75,29 @@
         padding: 0 10px;
       }
 
+      .personal-message {
+        font-size: clamp(14px, 3vw, 18px);
+        font-weight: normal;
+        font-style: italic;
+        margin-top: 10px;
+        max-width: 80%;
+        margin-left: auto;
+        margin-right: auto;
+        color: #ffffd0;
+        opacity: 0;
+        animation: fadeIn 3s ease forwards;
+        animation-delay: 2s;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
       /* Media queries para ajustes responsive */
       @media (max-width: 600px) {
         .container {
@@ -97,7 +120,12 @@
   </head>
   <body>
     <div class="container">
-      <div class="message">Nunca seras espectadora</div>
+      <div class="message">Feliz día de las flores amarillas</div>
+      <div class="message personal-message">
+        Aunque ya no hablemos como antes, te hice una promesa: mientras yo
+        exista, jamás serás solo espectadora de mi vida. Sigues siendo parte de
+        mi historia, como estos pétalos que florecen cada día.
+      </div>
       <canvas id="flowerCanvas"></canvas>
       <div class="controls">
         <button id="restartBtn">Reiniciar</button>
