@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flor Amarilla - Construcción Progresiva</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #000;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+      }
+
+      .container {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        width: 100%;
+        max-width: 800px;
+        height: auto;
+      }
+
+      canvas {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        height: auto;
+        max-height: 80vh;
+      }
+
+      .controls {
+        position: relative;
+        margin-top: 20px;
+        z-index: 10;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      button {
+        background-color: #ffd600;
+        color: #000;
+        border: none;
+        border-radius: 5px;
+        padding: 8px 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      button:hover {
+        background-color: #ffea00;
+        transform: scale(1.05);
+      }
+
+      .message {
+        position: relative;
+        margin-top: 20px;
+        margin-bottom: 20px;
+        color: white;
+        font-size: clamp(16px, 5vw, 24px);
+        font-weight: bold;
+        text-align: center;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        z-index: 10;
+        padding: 0 10px;
+      }
+
+      /* Media queries para ajustes responsive */
+      @media (max-width: 600px) {
+        .container {
+          padding: 10px;
+        }
+
+        button {
+          padding: 6px 12px;
+          font-size: 14px;
+        }
+      }
+
+      @media (max-height: 700px) {
+        .message {
+          margin-top: 10px;
+          margin-bottom: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="message">Nunca seras espectadora</div>
+      <canvas id="flowerCanvas"></canvas>
+      <div class="controls">
+        <button id="restartBtn">Reiniciar</button>
+        <button id="speedBtn">Velocidad</button>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const canvas = document.getElementById("flowerCanvas");
+        const ctx = canvas.getContext("2d");
+        const restartBtn = document.getElementById("restartBtn");
+        const speedBtn = document.getElementById("speedBtn");
+        const container = document.querySelector(".container");
+
+        // Variable para evitar reinicio en la primera carga
+        let firstLoad = true;
+
+        // Esta definición de animationState se elimina porque ya la movimos arriba
+
+        // Función para ajustar tamaño del canvas
+        function resizeCanvas() {
+          const containerWidth = container.clientWidth;
+          const windowHeight = window.innerHeight;
+
+          // Definir un tamaño máximo para el canvas
+          const maxSize = Math.min(containerWidth, windowHeight * 0.7);
+
+          // Establecer dimensiones del canvas con resolución física
+          const dpr = window.devicePixelRatio || 1;
+          canvas.width = maxSize * dpr;
+          canvas.height = maxSize * dpr;
+
+          // Establecer tamaño visual del canvas
+          canvas.style.width = `${maxSize}px`;
+          canvas.style.height = `${maxSize}px`;
+
+          // Escalar el contexto para mantener la resolución
+          ctx.scale(dpr, dpr);
+
+          // Reiniciar la animación para ajustar al nuevo tamaño
+          if (!firstLoad) {
+            resetAnimation();
+          }
+        }
+
+        // Ajustar canvas al cargar y al cambiar tamaño de ventana
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
+
+        // Variables de animación
+        let animationState = {
+          petalLayerIndex: 0,
+          petalIndex: 0,
+          centerDotIndex: 0,
+          isDrawingPetals: true,
+          isComplete: false,
+          lastTimestamp: 0,
+          drawSpeed: 1, // Velocidad de dibujo (1 = normal, 2 = rápido, 0.5 = lento)
+        };
+
+        // Obtener dimensiones responsivas
+        function getCanvasDimensions() {
+          return {
+            width: canvas.width / (window.devicePixelRatio || 1),
+            height: canvas.height / (window.devicePixelRatio || 1),
+            centerX: canvas.width / (2 * (window.devicePixelRatio || 1)),
+            centerY: canvas.height / (2 * (window.devicePixelRatio || 1)),
+          };
+        }
+
+        // Reiniciar animación
+        function resetAnimation() {
+          const dims = getCanvasDimensions();
+          ctx.clearRect(0, 0, dims.width, dims.height);
+          animationState = {
+            petalLayerIndex: 0,
+            petalIndex: 0,
+            centerDotIndex: 0,
+            isDrawingPetals: true,
+            isComplete: false,
+            lastTimestamp: 0,
+            drawSpeed: animationState.drawSpeed,
+          };
+          requestAnimationFrame(animate);
+        }
+
+        // Cambiar velocidad
+        function toggleSpeed() {
+          const speeds = [0.5, 1, 2, 4];
+          const currentIndex = speeds.indexOf(animationState.drawSpeed);
+          const nextIndex = (currentIndex + 1) % speeds.length;
+          animationState.drawSpeed = speeds[nextIndex];
+
+          // Actualizar texto del botón
+          const speedText = ["Lento", "Normal", "Rápido", "Muy Rápido"];
+          speedBtn.textContent = `Velocidad: ${speedText[nextIndex]}`;
+        }
+
+        // Inicializar eventos
+        restartBtn.addEventListener("click", resetAnimation);
+        speedBtn.addEventListener("click", toggleSpeed);
+        speedBtn.textContent = "Velocidad: Normal";
+
+        // Dibujar un pétalo de la flor
+        function drawPetal(startAngle, petalSize, progress = 1) {
+          const dims = getCanvasDimensions();
+
+          ctx.save();
+          ctx.translate(dims.centerX, dims.centerY);
+          ctx.rotate(startAngle);
+
+          // Color base para los pétalos (amarillo)
+          const gradient = ctx.createLinearGradient(0, 0, petalSize, 0);
+          gradient.addColorStop(0, "#FFEA00");
+          gradient.addColorStop(1, "#FFD600");
+          ctx.fillStyle = gradient;
+          ctx.strokeStyle = "#FFC107";
+          ctx.lineWidth = 1;
+
+          // Dibujar el contorno del pétalo con animación de progreso
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+
+          // Solo dibujamos una parte del pétalo basado en el progreso (0-1)
+          const endPoint = petalSize * progress;
+
+          // Primera curva (mitad superior del pétalo)
+          if (progress <= 0.5) {
+            // Ajustar el punto final de la curva según el progreso
+            const adjustedProgress = progress * 2; // Escalar 0-0.5 a 0-1
+
+            const cp1x = petalSize * 0.4 * adjustedProgress;
+            const cp1y = -petalSize * 0.5 * adjustedProgress;
+            const cp2x = petalSize * 0.8 * adjustedProgress;
+            const cp2y = -petalSize * 0.5 * adjustedProgress;
+            const epx = petalSize * adjustedProgress;
+            const epy = 0;
+
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, epx, epy);
+          } else {
+            // Primera curva completa
+            ctx.bezierCurveTo(
+              petalSize * 0.4,
+              -petalSize * 0.5,
+              petalSize * 0.8,
+              -petalSize * 0.5,
+              petalSize,
+              0
+            );
+
+            // Segunda curva (mitad inferior del pétalo)
+            const adjustedProgress = (progress - 0.5) * 2; // Escalar 0.5-1 a 0-1
+
+            const cp1x = petalSize * (1 - 0.2 * adjustedProgress);
+            const cp1y = petalSize * 0.5 * adjustedProgress;
+            const cp2x = petalSize * (1 - 0.6 * adjustedProgress);
+            const cp2y = petalSize * 0.5 * adjustedProgress;
+            const epx = petalSize * (1 - adjustedProgress);
+            const epy = 0;
+
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, epx, epy);
+          }
+
+          // Cerrar y rellenar el pétalo si está completo
+          if (progress >= 0.99) {
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Dibujar una semilla del centro
+        function drawSeed(index, maxSeeds) {
+          const dims = getCanvasDimensions();
+          const scale = Math.min(dims.width, dims.height) / 800; // Factor de escala basado en 800px original
+
+          // Calcular tamaño del centro en relación al tamaño del canvas
+          const centerSize = 80 * scale;
+          const phi = 137.508 * (Math.PI / 180.0); // Ángulo áureo en radianes
+          const centerRadius = centerSize / 2;
+
+          const ratio = index / maxSeeds;
+          const r = centerRadius * Math.sqrt(ratio);
+          const theta = index * phi;
+
+          const x = r * Math.cos(theta);
+          const y = r * Math.sin(theta);
+
+          const size = (3 + ratio * 2) * scale;
+
+          // Color para las semillas (marrón)
+          ctx.fillStyle = `rgb(${139 - index / 4}, ${69 - index / 8}, ${
+            19 - index / 12
+          })`;
+
+          ctx.save();
+          ctx.translate(dims.centerX, dims.centerY);
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Función de animación principal
+        function animate(timestamp) {
+          // Obtener dimensiones actuales
+          const dims = getCanvasDimensions();
+          const scale = Math.min(dims.width, dims.height) / 800; // Factor de escala basado en 800px original
+
+          // Configuración de la flor adaptada al tamaño
+          const numPetals = 16;
+          const petalLayers = 18;
+          const flowerScale = 1.5 * scale;
+
+          // Calcular delta time para animación suave independiente de la velocidad de fotogramas
+          if (!animationState.lastTimestamp) {
+            animationState.lastTimestamp = timestamp;
+          }
+
+          const deltaTime = timestamp - animationState.lastTimestamp;
+          animationState.lastTimestamp = timestamp;
+
+          // Velocidad ajustada
+          const timeStep = deltaTime * 0.05 * animationState.drawSpeed;
+
+          // Dibujar pétalos
+          if (animationState.isDrawingPetals) {
+            const currentLayer = animationState.petalLayerIndex;
+            const currentPetal = animationState.petalIndex;
+
+            if (currentLayer < petalLayers) {
+              const layerScale = 1 - currentLayer / petalLayers;
+              const petalSize = 180 * layerScale * flowerScale;
+
+              if (currentPetal < numPetals) {
+                // Variables para dibujo progresivo
+                const petalProgress =
+                  (animationState.petalProgress || 0) + timeStep;
+                animationState.petalProgress = petalProgress;
+
+                // Dibujar pétalo con progreso
+                const angle = (currentPetal / numPetals) * Math.PI * 2;
+                drawPetal(angle, petalSize, Math.min(petalProgress, 1));
+
+                // Avanzar al siguiente pétalo cuando el actual esté completo
+                if (petalProgress >= 1) {
+                  animationState.petalIndex++;
+                  animationState.petalProgress = 0;
+                }
+              } else {
+                // Avanzar a la siguiente capa
+                animationState.petalLayerIndex++;
+                animationState.petalIndex = 0;
+              }
+            } else {
+              // Terminar de dibujar pétalos, comenzar a dibujar el centro
+              animationState.isDrawingPetals = false;
+            }
+          } else {
+            // Dibujar centro (semillas)
+            const totalSeeds = 200;
+            const seedsPerFrame = Math.max(
+              1,
+              Math.floor(3 * animationState.drawSpeed)
+            );
+
+            for (let i = 0; i < seedsPerFrame; i++) {
+              if (animationState.centerDotIndex < totalSeeds) {
+                drawSeed(animationState.centerDotIndex, totalSeeds);
+                animationState.centerDotIndex++;
+              } else {
+                animationState.isComplete = true;
+                break;
+              }
+            }
+          }
+
+          // Continuar la animación si no está completa
+          if (!animationState.isComplete) {
+            requestAnimationFrame(animate);
+          }
+        }
+
+        // Iniciar animación
+        resetAnimation();
+        firstLoad = false;
+      });
+    </script>
+  </body>
+</html>
